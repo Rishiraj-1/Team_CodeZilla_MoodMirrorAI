@@ -1,13 +1,1 @@
-{
-  "type": "service_account",
-  "project_id": "palak-moodmirrorai",
-  "private_key_id": "274992f5b487da3ec3315c751878b352794649aa",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCZC8hwMu6LvHeV\nFsaHSNlEhKP5no9TTy3V6icfPKekxH7J/PoRohIqWRbNbWC2U1JsH8jU2qIXW4BT\n9HcylTHC99z1YeGq7gvCEWWKLkGySnaxEkv8oZ9QH/o+PgUBebG29UdRrmbK8bey\n0YM8iQgb9u9u8UE0NnZiByO/fIkSlMpIWSxUNiPnWYBQDf8rFzO1tphyArDQGtuR\n8jOSHDTJ+iVuNjOxXWT6DoAFEkhIIXeI1PUOUbwle1/mzvP8iuPKioK3WNyJbqmt\nLJ2EuC7G8ZqDvBPrnsGEBP3/juuFJGkRyD3vBfeqOWWOmItdx/94wCsG+SDjlIJR\n/WYuPm4jAgMBAAECggEAL3w2bol+9iA9wiZU5ri1oMq+zb5ineidQhfql4iMQ1Us\nOaOiO0Jb/IOzzX04WpmzoxShjVlgnXqocGQTb8BWtjWNex0plY1SXJ5lMOB1RcpQ\n1VPl+7Zx5bxmOlWn2/NULn4f6LoB7sncw0C6RVgHChYt5/A22OplBLlOYCVVqkvB\nN5gvE5nx/cHDHR20Sh9Z4qXgCdFpnZ2FQ3oUT3ObRIOz8Blgf81ovVtBYr1fxs7a\nk1DQGbyoLsiWkASlpAuiloE5bteU5M8t8XdEN1rrLrEvPz9r8IpXkq2WxhIT+hqm\n/jo+XeNnUSfWA4Ei96hWlOD1XeeNkKRsP/gAXkhN0QKBgQDI5SdurQmk+0EN2/hn\n0BWFTcZPHTLwSysEXze+lYZjr4hUvl/iEbxSTu27i110gb9GdgB/uwxOges9i8ly\nnSMMDpVvWmKH1xhiXnigxLj1kNGwWTRnQ7cc/IdByuZFbbh2hiR4q/mdBUrQxsys\nqUn5KbllyuuwmrahoQvHrBMKpQKBgQDDBqrLoV6iIH9E6vi+Nat94pdLH3aMVZw7\nzYpKkKq7XzKVcSYa6zgeMOghItPXhj5RlAIqnFuWVgaPxy1rToTxNs97warfByQC\nwr175g3Yk9AfI2vCtq6CTCdTdpfafNypifzMPCbnPVQ3UovOrk6O6tfOvddcFpVZ\neOqQjjJjJwKBgQCmt1zhASK20nfrO3hLFqk1ZhTDhPTH62l4iFhnhgjv4zTdNtu1\nbYh+OdgaQo686AvHOpgxaBXPdQu2mLIFtpfmIpgqv7RzDLLEt6edq4Pe7l7F3VGa\nvNxSZtMMa4hrZ6GkYrAToIxWnZS367LhOuATsWeVLTAo8EvNmCuBebCXrQKBgDvK\nQ3qCUnzp8ZqzXucRlS3W1gNV9gY4CNncvdT2XSFsohlmwwPlsSKwY7ok70VYBqsD\n8VYW8Y05enGB4s7PF7rLzvhl+3i8u7GM+oKNmRkY1+lz9omPcBjKOBRCe3OkbBIe\nF76VgmfKSZNcXzhSAAuYu+jKEshMtCTmCSOgNJppAoGAMiq7cgLAS9Ptg5/CakL4\n/C2s4yJ2eqb9822gFkVP+JNSP3awJngWjcr2d1zRs3S7BqMZiQ+z4QZg6VygZIyV\nRWqrXRTqajasNsnRK/FJ1K0grGoewHIWe72MHOvu7FWulqohMgB/0H9QJ2VEN+BN\nwvfc2LpX8Eg8rJXMnJ4TPRQ=\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-fbsvc@palak-moodmirrorai.iam.gserviceaccount.com",
-  "client_id": "116486196853077501234",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40palak-moodmirrorai.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+
