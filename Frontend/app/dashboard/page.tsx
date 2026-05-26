@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { SiteHeader } from "@/components/site-header"
 import { EmotionCard, type EmotionReading } from "@/components/emotion-card"
 import { TextInput } from "@/components/text-input"
@@ -9,6 +9,7 @@ import { VideoCapture } from "@/components/video-capture"
 import { EmotionChart } from "@/components/emotion-chart"
 import { ReportCard, type DailyReport } from "@/components/report-card"
 import { WellbeingSnapshot } from "@/components/wellbeing-snapshot"
+import { CrisisModal, CrisisInlineBanner, type CrisisLevel } from "@/components/crisis-modal"
 import { saveReport } from "@/utils/report-store"
 import { fetchMyReports } from "@/utils/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,13 +27,29 @@ export default function DashboardPage() {
   const [latestAny, setLatestAny] = useState<EmotionReading | undefined>(undefined)
   const [series, setSeries] = useState<{ time: string; value: number }[]>([])
   const [report, setReport] = useState<DailyReport | null>(null)
+  const [crisisOpen, setCrisisOpen] = useState(false)
+  const [crisisReason, setCrisisReason] = useState<string | undefined>(undefined)
+
+  const currentLevel: CrisisLevel = (latestAny?.crisis?.level as CrisisLevel) || "none"
+
+  // Auto-open the modal on level=crisis. We do NOT auto-open on
+  // 'elevated' -- that's intrusive. The inline banner offers it.
+  useEffect(() => {
+    if (currentLevel === "crisis") {
+      setCrisisReason(
+        latestAny?.crisis?.reasons?.[0]
+          ? `Triggered by: ${latestAny.crisis.reasons[0]}`
+          : `From your most recent ${latestAny?.source?.toLowerCase() || "reading"}.`,
+      )
+      setCrisisOpen(true)
+    }
+  }, [latestAny])
 
   function handleResult(r: EmotionReading) {
     setLatest((prev) => ({ ...prev, [r.source]: r }))
     setLatestAny(r)
     setSeries((prev) => {
       const ts = new Date(r.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      // Prefer real stress score if the engine returned one, else fall back to confidence%
       const val =
         typeof r.metrics?.stress_score === "number"
           ? r.metrics.stress_score
@@ -154,7 +171,18 @@ export default function DashboardPage() {
           </Card>
 
           {/* Wellbeing Snapshot (Emotion Intelligence Engine) */}
-          <div className="col-span-1 lg:col-span-3">
+          <div className="col-span-1 space-y-4 lg:col-span-3">
+            <CrisisInlineBanner
+              level={currentLevel}
+              onOpen={() => {
+                setCrisisReason(
+                  latestAny?.crisis?.reasons?.[0]
+                    ? `Triggered by: ${latestAny.crisis.reasons[0]}`
+                    : undefined,
+                )
+                setCrisisOpen(true)
+              }}
+            />
             <WellbeingSnapshot
               metrics={latestAny?.metrics}
               emotion={latestAny?.emotion}
@@ -287,6 +315,12 @@ export default function DashboardPage() {
           </Card>
         </div>
       </main>
+      <CrisisModal
+        open={crisisOpen}
+        level={(currentLevel === "crisis" ? "crisis" : "elevated") as "crisis" | "elevated"}
+        reason={crisisReason}
+        onClose={() => setCrisisOpen(false)}
+      />
     </>
   )
 }
