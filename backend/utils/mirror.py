@@ -34,6 +34,7 @@ import requests
 
 from ..database import rt_db
 from . import crisis as crisis_engine
+from . import privacy as privacy_engine
 
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -246,6 +247,15 @@ def _call_gemini(system_text: str, contents: list[dict]) -> tuple[str, Optional[
 # ---------------------------------------------------------------------------
 
 def _persist_message(uid: str, role: str, text: str) -> Optional[str]:
+    # Honor privacy.allow_mirror_history: if off, the chat still runs
+    # this turn but we do NOT persist messages. Future turns won't have
+    # this conversation as context -- that's the user's explicit choice.
+    try:
+        if not privacy_engine.get_consent(uid).get("allow_mirror_history", True):
+            return None
+    except Exception as e:
+        print(f"[mirror] consent check failed, persisting anyway: {e}")
+
     try:
         ref = rt_db.reference(f"mirror_sessions/{uid}/messages").push(
             {

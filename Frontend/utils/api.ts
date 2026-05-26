@@ -371,3 +371,94 @@ export async function getAnalytics(days = 28): Promise<AnalyticsResponse> {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+
+// ----- Privacy + Ethics ---------------------------------------------------
+
+export type ConsentPrefs = {
+  allow_text: boolean
+  allow_voice: boolean
+  allow_face: boolean
+  allow_text_storage: boolean
+  allow_mirror_history: boolean
+  allow_crisis_log: boolean
+  updated_at?: string
+}
+
+export type TransparencyItem = {
+  id: string
+  created_at?: string
+  source?: string
+  emotion?: string
+  confidence?: number
+  explanation?: string
+  metrics?: EngineMetrics
+  crisis?: CrisisAssessment
+  inputs?: { has_text: boolean; has_voice: boolean; has_face: boolean }
+}
+
+export async function getConsent(): Promise<ConsentPrefs> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/privacy/consent`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function updateConsent(patch: Partial<ConsentPrefs>): Promise<ConsentPrefs> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/privacy/consent`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function getTransparencyLog(limit = 20): Promise<{ items: TransparencyItem[] }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/privacy/transparency?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+/** Triggers a download of the user's full data export as JSON. */
+export async function exportMyData(): Promise<void> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/privacy/export`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `moodmirror-export-${new Date().toISOString().slice(0, 10)}.json`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+export async function deleteAllMyData(
+  confirm: string,
+): Promise<{ uid: string; deleted_at: string; results: Record<string, string> }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/privacy/delete-all`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ confirm }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

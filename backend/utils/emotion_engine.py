@@ -40,6 +40,7 @@ import requests
 
 from ..database import rt_db
 from . import crisis as crisis_engine
+from . import privacy as privacy_engine
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +406,25 @@ def analyze(
     has_voice = bool(audio_base64)
     has_face = bool(image_base64)
 
+    # ---- Consent gate ----
+    # We honor the user's privacy settings BEFORE we touch Gemini or
+    # persist anything. A disabled modality is removed from the call
+    # entirely; we don't even send it to the model.
+    consent = privacy_engine.get_consent(uid)
+    skipped: list[str] = []
+    if has_text and not consent.get("allow_text", True):
+        text = None
+        has_text = False
+        skipped.append("text")
+    if has_voice and not consent.get("allow_voice", True):
+        audio_base64 = None
+        has_voice = False
+        skipped.append("voice")
+    if has_face and not consent.get("allow_face", True):
+        image_base64 = None
+        has_face = False
+        skipped.append("face")
+
     sources_count = sum([has_text, has_voice, has_face])
     if sources_count == 0:
         source = "Text"  # benign default
@@ -416,6 +436,45 @@ def analyze(
         source = "Voice"
     else:
         source = "Face"
+
+    # If consent stripped everything, return a clean explained reading
+    # without calling Gemini at all. Honest about why.
+    if skipped and sources_count == 0:
+        now_iso = datetime.utcnow().isoformat()
+        zero_metrics = {
+            "stress_score": 0,
+            "burnout_risk": 0,
+            "cognitive_load": 0,
+            "crisis_probability": 0,
+            "emotional_volatility": 0,
+        }
+        return {
+            "reading_id": None,
+            "source": source,
+            "emotion": "Neutral",
+            "confidence": 0.0,
+            "explanation": (
+                "All input modalities are disabled in your privacy settings "
+                "(" + ", ".join(skipped) + "). Toggle them in /privacy to enable analysis."
+            ),
+            "metrics": zero_metrics,
+            "crisis": {
+                "level": "none",
+                "probability": 0,
+                "reasons": [],
+                "triggered_by": "none",
+            },
+            "inputs": {"has_text": False, "has_voice": False, "has_face": False},
+            "consent_skipped": skipped,
+            "created_at": now_iso,
+            "analysis": {
+                "emotion": "Neutral",
+                "confidence": 0.0,
+                "explanation": "Consent-gated; no analysis performed.",
+                "metrics": zero_metrics,
+            },
+            "degraded": True,
+        }
 
     history = _load_history(uid)
     history_summary = _summarize_history_for_prompt(history)
@@ -500,10 +559,12 @@ def analyze(
             print(f"[engine] readings persist failed: {e}")
 
         # Legacy mirror so existing /api/reports/me keeps working unchanged.
+        # Honor consent: if allow_text_storage is off, drop the raw text.
         try:
+            store_text = bool(consent.get("allow_text_storage", True))
             legacy = {
                 "source": source,
-                "text": text if has_text else None,
+                "text": text if (has_text and store_text) else None,
                 "analysis": {
                     "emotion": emotion,
                     "confidence": confidence,
@@ -532,6 +593,7 @@ def analyze(
         **reading,
         # Top-level convenience for frontend (avoids reaching into .crisis.level)
         "crisis_level": crisis["level"],
+        "consent_skipped": skipped,
         # Back-compat for existing callers (TextInput, AudioCapture)
         "analysis": {
             "emotion": emotion,
