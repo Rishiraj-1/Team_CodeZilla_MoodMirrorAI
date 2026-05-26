@@ -1,110 +1,130 @@
+"""
+/api/analyze routes.
+
+The unified POST /api/analyze is the new front door. It accepts any
+subset of {text, audio_base64, image_base64} and runs the Emotion
+Intelligence Engine.
+
+The legacy /text, /voice, /face routes are kept as thin wrappers that
+delegate to the engine, so existing frontend callers don't break.
+"""
+from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from ..utils.emotion_engine import analyze as engine_analyze
 from ..utils.firebase_auth import get_current_user
-from ..utils.ai_client import analyze_text_with_gemini, generate_suggestion_with_gemini, analyze_voice_with_gemini
-from ..database import rt_db
-from datetime import datetime
-import json
 
 router = APIRouter(prefix="/api/analyze")
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+
+class UnifiedAnalyzeRequest(BaseModel):
+    text: Optional[str] = None
+    audio_base64: Optional[str] = None
+    image_base64: Optional[str] = None
 
 
 class TextRequest(BaseModel):
     text: str
 
 
-class VoiceAnalyzeRequest(BaseModel):
-    user_id: str
-    audio_base64: str
+# ---------------------------------------------------------------------------
+# Unified entry point
+# ---------------------------------------------------------------------------
 
+@router.post("")
+@router.post("/")
+async def analyze_unified(
+    req: UnifiedAnalyzeRequest,
+    decoded=Depends(get_current_user),
+):
+    uid = decoded["uid"]
+
+    if not (req.text or req.audio_base64 or req.image_base64):
+        raise HTTPException(400, "Provide at least one of: text, audio_base64, image_base64")
+
+    try:
+        result = engine_analyze(
+            uid,
+            text=req.text,
+            audio_base64=req.audio_base64,
+            image_base64=req.image_base64,
+        )
+    except Exception as e:
+        print(f"[analyze] engine raised: {e}")
+        raise HTTPException(500, f"Emotion engine failed: {e}")
+
+    # The engine already produces a frontend-friendly envelope; pass through.
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Legacy routes (delegate to the engine)
+# ---------------------------------------------------------------------------
 
 @router.post("/text")
 async def analyze_text(req: TextRequest, decoded=Depends(get_current_user)):
     uid = decoded["uid"]
-    print(f"[Backend] Received text for analysis: {req.text}")
-    if not req.text.strip():
+    if not req.text or not req.text.strip():
         raise HTTPException(400, "Text required")
 
-    result = analyze_text_with_gemini(req.text)
-    if "error" in result:
-        print(f"[Backend] Error from Gemini text analysis: {result["error"]}")
-        raise HTTPException(500, f"AI text analysis failed: {result["error"]}")
+    result = engine_analyze(uid, text=req.text)
 
-    suggestion = generate_suggestion_with_gemini(req.text)
-    if "error" in suggestion:
-        print(f"[Backend] Error from Gemini suggestion generation: {suggestion["error"]}")
-        raise HTTPException(500, f"AI suggestion generation failed: {suggestion["error"]}")
-
-    report_ref = rt_db.reference(f"reports/{uid}")
-    new_ref = report_ref.push({
-        "source": "Text",
-        "text": req.text,
-        "analysis": result,
-        "suggestion": suggestion,
-        "created_at": datetime.utcnow().isoformat(),
-    })
-
-    # Normalize top-level for frontend convenience
-    response = {
-        "report_id": new_ref.key,
-        "analysis": result,
-        "suggestion": suggestion,
+    # Legacy callers expect a top-level `emotion` and `confidence`. The
+    # engine already adds these via `analysis`, but older code paths read
+    # both top-level and nested -- mirror them up explicitly to be safe.
+    return {
+        **result,
+        "emotion": result.get("emotion"),
+        "confidence": result.get("confidence"),
     }
-    if isinstance(result, dict):
-        if "emotion" in result:
-            response["emotion"] = result.get("emotion")
-        if "confidence" in result:
-            response["confidence"] = result.get("confidence")
-    return response
 
 
 @router.post("/voice")
 async def analyze_voice(request: Request, decoded=Depends(get_current_user)):
     uid = decoded["uid"]
-    print(f"[Backend] Received voice for analysis.")
     try:
         body = await request.json()
-        print(f"[Backend] Voice request body keys: {list(body.keys())}")
-        
-        if not body.get("audio_base64", "").strip():
-            raise HTTPException(status_code=400, detail="audio_base64 required")
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
 
-        result = analyze_voice_with_gemini(body["audio_base64"])
-        print(f"[Backend] Voice analysis result: {result}")
-        
-        if "error" in result:
-            print(f"[Backend] Error from Gemini voice analysis: {result['error']}")
-            raise HTTPException(500, f"AI voice analysis failed: {result['error']}")
+    audio_b64 = (body or {}).get("audio_base64", "")
+    if not audio_b64 or not str(audio_b64).strip():
+        raise HTTPException(400, "audio_base64 required")
 
-        # Generate coping suggestions for voice analysis
-        suggestion = generate_suggestion_with_gemini("Voice analysis showing emotional state")
-        if "error" in suggestion:
-            print(f"[Backend] Error from Gemini suggestion generation: {suggestion['error']}")
-            suggestion = {"text": "Consider taking a moment to reflect on your current emotional state."}
-
-        # Save to reports database
-        report_ref = rt_db.reference(f"reports/{uid}")
-        new_ref = report_ref.push({
-            "source": "Voice",
-            "analysis": result,
-            "suggestion": suggestion,
-            "created_at": datetime.utcnow().isoformat(),
-        })
-
-        # Normalize top-level for frontend convenience
-        response = {
-            "report_id": new_ref.key,
-            "analysis": result,
-            "suggestion": suggestion,
-        }
-        if isinstance(result, dict):
-            if "emotion" in result:
-                response["emotion"] = result.get("emotion")
-            if "confidence" in result:
-                response["confidence"] = result.get("confidence")
-        return response
-    except Exception as e:
-        print(f"[Backend] Error in voice analysis: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    result = engine_analyze(uid, audio_base64=audio_b64)
+    return {
+        **result,
+        "emotion": result.get("emotion"),
+        "confidence": result.get("confidence"),
+    }
 
 
+@router.post("/face")
+async def analyze_face(request: Request, decoded=Depends(get_current_user)):
+    """New real face endpoint. Replaces the frontend stub.
+
+    Body: { "image_base64": "<jpeg-base64-no-prefix>" }
+    """
+    uid = decoded["uid"]
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+    image_b64 = (body or {}).get("image_base64", "")
+    if not image_b64 or not str(image_b64).strip():
+        raise HTTPException(400, "image_base64 required")
+
+    result = engine_analyze(uid, image_base64=image_b64)
+    return {
+        **result,
+        "emotion": result.get("emotion"),
+        "confidence": result.get("confidence"),
+    }

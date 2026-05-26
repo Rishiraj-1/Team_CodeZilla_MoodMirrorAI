@@ -2,11 +2,21 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+export type EngineMetrics = {
+  stress_score: number
+  burnout_risk: number
+  emotional_volatility: number
+  cognitive_load: number
+  crisis_probability: number
+}
+
 export type EmotionReading = {
-  source: "Text" | "Voice" | "Face"
+  source: "Text" | "Voice" | "Face" | "Multimodal"
   emotion: string
   confidence: number // 0..1
   at: number
+  metrics?: EngineMetrics
+  explanation?: string
 }
 
 function normalizeEmotionLabel(emotion: string) {
