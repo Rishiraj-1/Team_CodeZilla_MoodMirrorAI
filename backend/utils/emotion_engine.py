@@ -39,6 +39,7 @@ from typing import Any, Optional
 import requests
 
 from ..database import rt_db
+from . import crisis as crisis_engine
 
 
 # ---------------------------------------------------------------------------
@@ -452,12 +453,35 @@ def analyze(
     series_with_now = stress_series + [float(metrics["stress_score"])]
     metrics["emotional_volatility"] = int(_compute_volatility(series_with_now))
 
+    # ---- Crisis assessment ----
+    # We classify on the user's text only (audio/face are non-textual to
+    # the deterministic layer). The model layer in crisis.py also reads
+    # readings as soft context, so signals from voice/face still count
+    # via metrics.crisis_probability.
+    try:
+        crisis = crisis_engine.classify(text or "", history)
+    except Exception as e:
+        print(f"[engine] crisis.classify failed: {e}")
+        crisis = {"level": "none", "probability": 0, "reasons": [], "triggered_by": "none"}
+
+    # If the deterministic crisis_probability metric is high, raise the
+    # crisis level even when no keywords/model fired -- e.g. Gemini-vision
+    # picked up real distress in a face/voice clip.
+    if crisis["level"] == "none" and metrics["crisis_probability"] >= 60:
+        crisis["level"] = "elevated"
+        crisis["probability"] = max(crisis["probability"], metrics["crisis_probability"])
+        crisis["reasons"].append(
+            f"engine crisis_probability={metrics['crisis_probability']}/100"
+        )
+        crisis["triggered_by"] = "metrics"
+
     reading = {
         "source": source,
         "emotion": emotion,
         "confidence": confidence,
         "explanation": explanation,
         "metrics": metrics,
+        "crisis": crisis,
         "inputs": {
             "has_text": has_text,
             "has_voice": has_voice,
@@ -492,9 +516,22 @@ def analyze(
         except Exception as e:
             print(f"[engine] legacy reports persist failed: {e}")
 
+        # Log crisis event when level >= watch.
+        try:
+            crisis_engine.log_event(
+                uid,
+                assessment=crisis,
+                source="engine",
+                trigger_excerpt=(text or "")[:200] if has_text else f"[{source} input]",
+            )
+        except Exception as e:
+            print(f"[engine] crisis log failed: {e}")
+
     response = {
         "reading_id": reading_id,
         **reading,
+        # Top-level convenience for frontend (avoids reaching into .crisis.level)
+        "crisis_level": crisis["level"],
         # Back-compat for existing callers (TextInput, AudioCapture)
         "analysis": {
             "emotion": emotion,

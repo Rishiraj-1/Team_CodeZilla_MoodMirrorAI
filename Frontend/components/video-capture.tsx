@@ -81,6 +81,7 @@ export function VideoCapture({ onResult }: { onResult: (r: EmotionReading) => vo
         at: Date.now(),
         metrics: data?.metrics,
         explanation: data?.explanation,
+        crisis: data?.crisis,
       })
     } catch (e: any) {
       console.error("[face] analyze error:", e)

@@ -23,6 +23,13 @@ export type EngineMetrics = {
   crisis_probability: number
 }
 
+export type CrisisAssessment = {
+  level: "none" | "watch" | "elevated" | "crisis"
+  probability: number
+  reasons: string[]
+  triggered_by: "keyword" | "metrics" | "model" | "none" | "manual"
+}
+
 export type EngineReading = {
   reading_id?: string | null
   source: "Text" | "Voice" | "Face" | "Multimodal"
@@ -30,6 +37,8 @@ export type EngineReading = {
   confidence: number
   explanation?: string
   metrics: EngineMetrics
+  crisis?: CrisisAssessment
+  crisis_level?: CrisisAssessment["level"]
   inputs?: { has_text: boolean; has_voice: boolean; has_face: boolean }
   created_at?: string
   // Back-compat envelope
@@ -149,6 +158,7 @@ export type MirrorChatResponse = {
   reply: string
   user_msg_id: string | null
   model_msg_id: string | null
+  crisis: CrisisAssessment
   crisis_flag: boolean
   context_used: {
     readings_count: number
@@ -174,6 +184,39 @@ export async function mirrorReset(): Promise<{ ok: boolean }> {
   const token = await getIdTokenOrThrow()
   const res = await fetch(`${getBackendBase()}/api/mirror/reset`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+// ----- Crisis Intelligence -------------------------------------------------
+
+export type CrisisEvent = {
+  id?: string
+  level: CrisisAssessment["level"]
+  probability: number
+  reasons: string[]
+  triggered_by: string
+  source: "engine" | "mirror" | "manual"
+  trigger_excerpt?: string
+  created_at?: string
+}
+
+export async function fetchWellbeingSummary(): Promise<{ message: string }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/crisis/wellbeing-summary`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function fetchRecentCrisisEvents(
+  limit = 10,
+): Promise<{ events: CrisisEvent[] }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/crisis/recent?limit=${limit}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(await res.text())

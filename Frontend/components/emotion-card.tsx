@@ -17,6 +17,12 @@ export type EmotionReading = {
   at: number
   metrics?: EngineMetrics
   explanation?: string
+  crisis?: {
+    level: "none" | "watch" | "elevated" | "crisis"
+    probability: number
+    reasons: string[]
+    triggered_by: string
+  }
 }
 
 function normalizeEmotionLabel(emotion: string) {

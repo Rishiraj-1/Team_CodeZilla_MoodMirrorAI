@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { mirrorChat, mirrorHistory, mirrorReset, type MirrorMessage } from "@/utils/api"
+import { CrisisModal, CrisisInlineBanner, type CrisisLevel } from "@/components/crisis-modal"
 
 type Bubble = MirrorMessage & { id: string; pending?: boolean }
 
@@ -63,6 +64,9 @@ export function MirrorChat() {
   const [contextHint, setContextHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [crisisLevel, setCrisisLevel] = useState<CrisisLevel>("none")
+  const [crisisReason, setCrisisReason] = useState<string | undefined>(undefined)
+  const [crisisOpen, setCrisisOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   // Hydrate from server on mount.
@@ -121,6 +125,19 @@ export function MirrorChat() {
       } else {
         setContextHint("No emotion readings yet -- Mirror is going on what you say.")
       }
+
+      // Crisis surfacing: full modal on 'crisis', inline banner on 'elevated'.
+      const lvl = (res.crisis?.level as CrisisLevel) || "none"
+      setCrisisLevel(lvl)
+      if (lvl === "crisis") {
+        setCrisisReason(
+          res.crisis?.reasons?.[0]
+            ? `Triggered by: ${res.crisis.reasons[0]}`
+            : "From what you just shared.",
+        )
+        setCrisisOpen(true)
+      }
+
       const modelBubble: Bubble = {
         id: `srv-${Date.now()}`,
         role: "model",
@@ -182,6 +199,11 @@ export function MirrorChat() {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
+        <CrisisInlineBanner
+          level={crisisLevel}
+          onOpen={() => setCrisisOpen(true)}
+        />
+
         {contextHint ? (
           <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             {contextHint}
@@ -239,6 +261,12 @@ export function MirrorChat() {
           Vandrevala Foundation (1860-2662-345), or AASRA (9820466726).
         </p>
       </CardContent>
+      <CrisisModal
+        open={crisisOpen}
+        level={(crisisLevel === "crisis" ? "crisis" : "elevated") as "crisis" | "elevated"}
+        reason={crisisReason}
+        onClose={() => setCrisisOpen(false)}
+      />
     </Card>
   )
 }

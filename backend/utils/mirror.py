@@ -33,6 +33,7 @@ from typing import Optional
 import requests
 
 from ..database import rt_db
+from . import crisis as crisis_engine
 
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -284,7 +285,8 @@ def chat(uid: str, user_message: str) -> dict:
         "reply":         str,
         "user_msg_id":   str | None,
         "model_msg_id":  str | None,
-        "crisis_flag":   bool,   # tripwire fired this turn
+        "crisis":        { level, probability, reasons, triggered_by },
+        "crisis_flag":   bool,        # legacy: True iff level >= elevated
         "context_used":  {
           "readings_count": int,
           "history_count":  int,
@@ -298,15 +300,24 @@ def chat(uid: str, user_message: str) -> dict:
             "reply": "I'm here -- what's on your mind right now?",
             "user_msg_id": None,
             "model_msg_id": None,
+            "crisis": {"level": "none", "probability": 0, "reasons": [], "triggered_by": "none"},
             "crisis_flag": False,
             "context_used": {"readings_count": 0, "history_count": 0, "latest_emotion": None},
         }
 
-    crisis_flag = _has_crisis_signal(user_message)
-
-    # Load context
+    # Load context first so the classifier can use it.
     readings = _load_recent_readings(uid)
     history = _load_recent_messages(uid)
+
+    # Central crisis classification (keyword + history + optional model).
+    try:
+        crisis = crisis_engine.classify(user_message, readings)
+    except Exception as e:
+        print(f"[mirror] crisis.classify failed: {e}")
+        crisis = {"level": "none", "probability": 0, "reasons": [], "triggered_by": "none"}
+
+    crisis_flag = crisis["level"] in ("elevated", "crisis")
+
     context_block = _summarize_readings_for_prompt(readings)
 
     system_text = (
@@ -329,15 +340,27 @@ def chat(uid: str, user_message: str) -> dict:
             "give me a moment and try again? I'm still here."
         )
 
-    if crisis_flag:
+    if crisis["level"] == "crisis":
         reply_text = SAFETY_PREFIX + reply_text
 
     model_msg_id = _persist_message(uid, "model", reply_text)
+
+    # Log the crisis event (>=watch). Skipped automatically for 'none'.
+    try:
+        crisis_engine.log_event(
+            uid,
+            assessment=crisis,
+            source="mirror",
+            trigger_excerpt=user_message,
+        )
+    except Exception as e:
+        print(f"[mirror] crisis log failed: {e}")
 
     return {
         "reply": reply_text,
         "user_msg_id": user_msg_id,
         "model_msg_id": model_msg_id,
+        "crisis": crisis,
         "crisis_flag": crisis_flag,
         "context_used": {
             "readings_count": len(readings),
