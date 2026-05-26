@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from datetime import datetime
 from ..utils.firebase_auth import get_current_user
+from ..utils import support_intel
 from ..database import rt_db
 
 router = APIRouter(prefix="/api/support")
@@ -37,5 +38,21 @@ def delete_contact(contact_id: str, decoded=Depends(get_current_user)):
     ref = rt_db.reference(f"support/{uid}/{contact_id}")
     ref.delete()
     return {"id": contact_id, "status": "deleted"}
+
+
+# ---- Smart Support Network -------------------------------------------------
+
+@router.get("/wellbeing-report")
+def wellbeing_report(decoded=Depends(get_current_user)):
+    """Severity score + audience-tailored narratives + suggested actions.
+
+    Composed of:
+      - severity:           deterministic 0..100 score with factors
+      - summary:            three Gemini-written narratives
+                            (for_friend / for_family / for_therapist)
+      - suggested_actions:  list[{audience, action}]
+    """
+    uid = decoded["uid"]
+    return support_intel.get_support_report(uid)
 
 
