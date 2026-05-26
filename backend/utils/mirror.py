@@ -35,6 +35,7 @@ import requests
 from ..database import rt_db
 from . import crisis as crisis_engine
 from . import privacy as privacy_engine
+from . import personalization as pers_engine
 
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -330,8 +331,16 @@ def chat(uid: str, user_message: str) -> dict:
 
     context_block = _summarize_readings_for_prompt(readings)
 
+    # Personalization: language, culture, age, spirituality.
+    try:
+        cultural = pers_engine.cultural_block(pers_engine.get_profile(uid))
+    except Exception as e:
+        print(f"[mirror] personalization load failed: {e}")
+        cultural = ""
+
     system_text = (
         SYSTEM_INSTRUCTION
+        + ("\n\n" + cultural if cultural else "")
         + "\n\n--- USER CONTEXT (silent, do not echo) ---\n"
         + context_block
     )

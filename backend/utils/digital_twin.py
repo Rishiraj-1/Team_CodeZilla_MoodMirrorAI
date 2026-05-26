@@ -34,6 +34,8 @@ from typing import Optional
 import requests
 
 from ..database import rt_db
+from . import crisis as crisis_engine
+from . import personalization as pers_engine
 
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -537,10 +539,28 @@ def _heuristic_insights(profile: dict) -> dict:
 def _call_gemini(profile: dict) -> Optional[dict]:
     if not API_KEY:
         return None
+    # Pull personalization from the user's profile_uid embedded in the
+    # build_profile output -- we don't have it here, so the caller
+    # supplies it via the profile dict's '_uid' if available. Falls back
+    # to default cultural block (empty) when missing.
+    uid = profile.get("_uid")
+    cultural = ""
+    if uid:
+        try:
+            cultural = pers_engine.cultural_block(pers_engine.get_profile(uid))
+        except Exception as e:
+            print(f"[twin] personalization load failed: {e}")
+            cultural = ""
+
     prompt = _INSIGHTS_PROMPT.format(
         window=profile.get("window_days", WINDOW_DAYS),
-        profile_json=json.dumps(profile, default=str),
+        profile_json=json.dumps(
+            {k: v for k, v in profile.items() if not k.startswith("_")},
+            default=str,
+        ),
     )
+    if cultural:
+        prompt = prompt + "\n\n" + cultural
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"{MODEL}:generateContent?key={API_KEY}"
@@ -672,5 +692,8 @@ def get_twin(uid: str) -> dict:
     profile = build_profile(uid)
     if not profile.get("sufficient_data"):
         return {"profile": profile, "insights": None}
-    insights = generate_insights(profile)
+    # Inject uid so generate_insights can pull personalization. We strip
+    # it before sending to Gemini (handled in _call_gemini).
+    profile_with_uid = {**profile, "_uid": uid}
+    insights = generate_insights(profile_with_uid)
     return {"profile": profile, "insights": insights}

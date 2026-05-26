@@ -462,3 +462,63 @@ export async function deleteAllMyData(
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+
+// ----- Personalization (profile preferences) -----------------------------
+
+export type ProfilePrefs = {
+  language: "en" | "hi" | "en-IN"
+  culture: "none" | "indian" | "western" | "east-asian"
+  age_band: "teen" | "adult" | "senior"
+  spirituality:
+    | "none"
+    | "spiritual"
+    | "hindu"
+    | "muslim"
+    | "christian"
+    | "sikh"
+    | "buddhist"
+  updated_at?: string
+}
+
+export async function getProfile(): Promise<ProfilePrefs> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function updateProfile(
+  patch: Partial<ProfilePrefs>,
+): Promise<ProfilePrefs> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+// ----- Region-aware helplines (used by the Crisis Modal) -----------------
+
+export type Helpline = {
+  label: string
+  number: string
+  region: string
+}
+
+export async function getHelplines(): Promise<{ helplines: Helpline[] }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/crisis/helplines`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

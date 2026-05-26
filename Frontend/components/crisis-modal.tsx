@@ -4,23 +4,17 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { BreathingCircle } from "./breathing-circle"
 import { GroundingExercise } from "./grounding-exercise"
-import { fetchWellbeingSummary, getSupportContacts } from "@/utils/api"
+import { fetchWellbeingSummary, getSupportContacts, getHelplines, type Helpline } from "@/utils/api"
 
 export type CrisisLevel = "none" | "watch" | "elevated" | "crisis"
 
-type Helpline = {
-  label: string
-  number: string
-  region: string
-}
+type SupportContact = { id: string; name: string; phone: string }
 
-const HELPLINES: Helpline[] = [
+const FALLBACK_HELPLINES: Helpline[] = [
   { label: "iCall", number: "9152987821", region: "India" },
   { label: "Vandrevala", number: "1860-2662-345", region: "India, 24/7" },
   { label: "AASRA", number: "9820466726", region: "India, 24/7" },
 ]
-
-type SupportContact = { id: string; name: string; phone: string }
 
 type Props = {
   open: boolean
@@ -40,10 +34,31 @@ type Props = {
 export function CrisisModal({ open, level, reason, onClose }: Props) {
   const [tab, setTab] = useState<"breathe" | "ground" | "reach">("breathe")
   const [contacts, setContacts] = useState<SupportContact[]>([])
+  const [helplines, setHelplines] = useState<Helpline[]>(FALLBACK_HELPLINES)
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Fetch region-aware helplines as soon as the modal opens. Defaults
+  // (India) are already shown, so this is a soft-upgrade.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    getHelplines()
+      .then((res) => {
+        if (cancelled) return
+        if (Array.isArray(res?.helplines) && res.helplines.length > 0) {
+          setHelplines(res.helplines)
+        }
+      })
+      .catch(() => {
+        // Keep fallback helplines silently.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   // Load support contacts + wellbeing summary lazily when "Reach out" is opened.
   useEffect(() => {
@@ -168,9 +183,9 @@ export function CrisisModal({ open, level, reason, onClose }: Props) {
                   Helplines
                 </div>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {HELPLINES.map((h) => (
+                  {helplines.map((h) => (
                     <a
-                      key={h.number}
+                      key={`${h.label}-${h.number}`}
                       href={`tel:${h.number.replace(/\s+/g, "")}`}
                       className="rounded-lg border bg-card px-3 py-2 text-sm transition-colors hover:bg-muted"
                     >

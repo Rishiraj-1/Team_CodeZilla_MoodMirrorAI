@@ -16,6 +16,7 @@ const nav = [
   { href: "/analytics", label: "Analytics" },
   { href: "/digital-twin", label: "Your Digital Twin" },
   { href: "/support", label: "Support Network" },
+  { href: "/profile", label: "You" },
   { href: "/privacy", label: "Privacy" },
 ]
 
