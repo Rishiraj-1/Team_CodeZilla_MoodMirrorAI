@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from ..utils.firebase_auth import get_current_user
 from ..utils import crisis as crisis_engine
+from ..utils import personalization as pers_engine
 
 router = APIRouter(prefix="/api/crisis")
 
@@ -52,3 +53,13 @@ async def log(payload: LogPayload, decoded=Depends(get_current_user)):
         trigger_excerpt=payload.trigger_excerpt,
     )
     return {"event_id": eid}
+
+
+@router.get("/helplines")
+async def helplines(decoded=Depends(get_current_user)):
+    """Region-aware helpline list, picked from the user's personalization
+    profile (culture + language). Always includes a global pointer.
+    """
+    uid = decoded["uid"]
+    profile = pers_engine.get_profile(uid)
+    return {"helplines": pers_engine.regional_helplines(profile)}

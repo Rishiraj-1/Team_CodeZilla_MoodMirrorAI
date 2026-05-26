@@ -31,6 +31,7 @@ import requests
 
 from ..database import rt_db
 from .digital_twin import _parse_iso
+from . import personalization as pers_engine
 
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -330,12 +331,23 @@ def _call_gemini(severity: dict) -> Optional[dict]:
     if not API_KEY:
         return None
 
+    uid = severity.get("_uid")
+    cultural = ""
+    if uid:
+        try:
+            cultural = pers_engine.cultural_block(pers_engine.get_profile(uid))
+        except Exception as e:
+            print(f"[support_intel] personalization load failed: {e}")
+            cultural = ""
+
     prompt = _REPORT_PROMPT.format(
         level=severity.get("level"),
         score=severity.get("score") if severity.get("score") is not None else "N/A",
         factors="\n".join(f"- {f}" for f in (severity.get("factors") or [])) or "- (none significant)",
         context_json=json.dumps(severity.get("context") or {}, default=str),
     )
+    if cultural:
+        prompt = prompt + "\n\n" + cultural
 
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -414,7 +426,9 @@ def generate_wellbeing_report(severity: dict) -> dict:
 def get_support_report(uid: str) -> dict:
     severity = compute_severity(uid)
     actions = suggested_actions(severity.get("level", "unknown"))
-    summary = generate_wellbeing_report(severity)
+    # Pass uid through so the Gemini call can pull personalization.
+    severity_with_uid = {**severity, "_uid": uid}
+    summary = generate_wellbeing_report(severity_with_uid)
     return {
         "severity": severity,
         "summary": summary,
