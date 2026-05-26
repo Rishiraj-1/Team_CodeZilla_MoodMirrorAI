@@ -146,6 +146,69 @@ export async function getMoodForecast() {
   return res.json()
 }
 
+// ----- Digital Twin 2.0 ----------------------------------------------------
+
+export type TwinProfile = {
+  sufficient_data: boolean
+  n_readings: number
+  min_required?: number
+  window_days: number
+  resilience_score?: number
+  dominant_emotion?: string
+  emotion_distribution?: Record<string, number>
+  avg_stress?: number
+  max_stress?: number
+  avg_burnout?: number
+  volatility?: number
+  recovery_speed?: number | null
+  streak_days?: number
+  by_hour_stress?: Record<string, number>
+  best_hour?: number | null
+  worst_hour?: number | null
+  trigger_words?: string[]
+  crisis_count?: number
+  last_crisis?: string | null
+  stress_sparkline?: { date: string; avg_stress: number | null; samples: number }[]
+}
+
+export type TwinInsights = {
+  headline: string
+  insights: { title: string; detail: string }[]
+  forecast: {
+    day_offset: number
+    date: string
+    risk: "low" | "medium" | "high"
+    reason: string
+  }[]
+  recommendations: {
+    title: string
+    why: string
+    category:
+      | "breathing"
+      | "journaling"
+      | "social"
+      | "sleep"
+      | "movement"
+      | "break"
+      | "professional"
+  }[]
+  _degraded?: boolean
+}
+
+export type TwinResponse = {
+  profile: TwinProfile
+  insights: TwinInsights | null
+}
+
+export async function getDigitalTwin(): Promise<TwinResponse> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/digital_twin/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 // ----- Mirror (Gemini companion with memory) -------------------------------
 
 export type MirrorMessage = {
