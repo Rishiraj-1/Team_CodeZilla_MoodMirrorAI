@@ -285,3 +285,41 @@ export async function fetchRecentCrisisEvents(
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+// ----- Analytics ----------------------------------------------------------
+
+export type AnalyticsResponse = {
+  window_days: number
+  n_readings: number
+  sufficient_data: boolean
+  min_required?: number
+  weekly_resilience?: { week_start: string; score: number | null; samples: number }[]
+  heatmap?: (number | null)[][] // [day_of_week 0..6 (Mon..Sun)][hour 0..23]
+  heatmap_max?: number
+  mirror_effectiveness?: {
+    samples: number
+    avg_drop: number
+    min_drop: number
+    max_drop: number
+    method: string
+  } | null
+  emotion_shift?: {
+    this_week: Record<string, number>
+    last_week: Record<string, number>
+    delta: Record<string, number>
+  }
+  crisis_per_day?: { date: string; count: number }[]
+  recovery_time_minutes?: {
+    median_min: number | null
+    samples: number
+  }
+}
+
+export async function getAnalytics(days = 28): Promise<AnalyticsResponse> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/analytics/me?days=${days}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
