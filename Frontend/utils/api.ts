@@ -286,6 +286,54 @@ export async function fetchRecentCrisisEvents(
   return res.json()
 }
 
+// ----- Smart Support Network ----------------------------------------------
+
+export type SupportSeverity = {
+  sufficient_data: boolean
+  score: number | null
+  level: "green" | "amber" | "red" | "unknown"
+  factors: string[]
+  context: {
+    n_readings: number
+    min_required?: number
+    n_crisis_events?: number
+    avg_stress?: number
+    avg_crisis_prob?: number
+    dominant_emotion?: string | null
+    volatility?: number
+    neg_share_recent?: number
+    window_days: number
+    recent_days?: number
+  }
+}
+
+export type SupportSummary = {
+  for_friend: string
+  for_family: string
+  for_therapist: string
+  _degraded?: boolean
+}
+
+export type SupportSuggestedAction = {
+  audience: "friend" | "family" | "therapist"
+  action: string
+}
+
+export type SupportReport = {
+  severity: SupportSeverity
+  summary: SupportSummary
+  suggested_actions: SupportSuggestedAction[]
+}
+
+export async function getSupportReport(): Promise<SupportReport> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/support/wellbeing-report`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 // ----- Analytics ----------------------------------------------------------
 
 export type AnalyticsResponse = {
