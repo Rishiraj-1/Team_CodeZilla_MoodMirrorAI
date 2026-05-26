@@ -353,9 +353,24 @@ def log_event(
     source: str,
     trigger_excerpt: Optional[str] = None,
 ) -> Optional[str]:
-    """Log only level >= watch. Skip 'none' to keep noise out."""
+    """Log only level >= watch. Skip 'none' to keep noise out.
+
+    Honors privacy.allow_crisis_log: if the user has opted out of the
+    crisis audit trail, we do NOT persist. The classifier still runs
+    so safety UI fires; we just don't keep records.
+    """
     if assessment.get("level") in (None, "none"):
         return None
+
+    # Lazy import to avoid a circular dependency at module load time.
+    try:
+        from . import privacy as privacy_engine  # noqa: WPS433
+        if not privacy_engine.get_consent(uid).get("allow_crisis_log", True):
+            return None
+    except Exception as e:
+        # If consent lookup fails, default to logging -- safety bias.
+        print(f"[crisis] consent check failed, logging anyway: {e}")
+
     payload = {
         "level": assessment["level"],
         "probability": assessment.get("probability", 0),
