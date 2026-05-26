@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .routes import analyze, reports, support, digital_twin
+from .routes import analyze, reports, support, digital_twin, mirror
 from . import database
 
 load_dotenv()
@@ -27,6 +27,7 @@ app.include_router(analyze.router)
 app.include_router(reports.router)
 app.include_router(support.router)
 app.include_router(digital_twin.router)
+app.include_router(mirror.router)
 
 
 @app.get("/")

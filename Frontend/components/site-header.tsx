@@ -11,6 +11,7 @@ import { getFirebaseIfConfigured } from "@/components/firebase-client"
 const nav = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/mirror", label: "Mirror" },
   { href: "/reports", label: "Reports" },
   { href: "/digital-twin", label: "Your Digital Twin" },
   { href: "/support", label: "Support Network" },

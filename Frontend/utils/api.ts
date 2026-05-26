@@ -136,3 +136,46 @@ export async function getMoodForecast() {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+// ----- Mirror (Gemini companion with memory) -------------------------------
+
+export type MirrorMessage = {
+  role: "user" | "model"
+  text: string
+  created_at?: string
+}
+
+export type MirrorChatResponse = {
+  reply: string
+  user_msg_id: string | null
+  model_msg_id: string | null
+  crisis_flag: boolean
+  context_used: {
+    readings_count: number
+    history_count: number
+    latest_emotion: string | null
+  }
+}
+
+export async function mirrorChat(message: string): Promise<MirrorChatResponse> {
+  return postJsonAuthed("/api/mirror/chat", { message })
+}
+
+export async function mirrorHistory(): Promise<{ messages: MirrorMessage[] }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/mirror/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function mirrorReset(): Promise<{ ok: boolean }> {
+  const token = await getIdTokenOrThrow()
+  const res = await fetch(`${getBackendBase()}/api/mirror/reset`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
