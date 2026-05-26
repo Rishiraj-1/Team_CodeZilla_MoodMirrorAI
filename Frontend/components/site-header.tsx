@@ -13,6 +13,7 @@ const nav = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/mirror", label: "Mirror" },
   { href: "/reports", label: "Reports" },
+  { href: "/analytics", label: "Analytics" },
   { href: "/digital-twin", label: "Your Digital Twin" },
   { href: "/support", label: "Support Network" },
 ]
