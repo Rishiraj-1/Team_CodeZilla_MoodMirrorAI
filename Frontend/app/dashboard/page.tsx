@@ -8,6 +8,7 @@ import { AudioCapture } from "@/components/audio-capture"
 import { VideoCapture } from "@/components/video-capture"
 import { EmotionChart } from "@/components/emotion-chart"
 import { ReportCard, type DailyReport } from "@/components/report-card"
+import { WellbeingSnapshot } from "@/components/wellbeing-snapshot"
 import { saveReport } from "@/utils/report-store"
 import { fetchMyReports } from "@/utils/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,15 +21,22 @@ export default function DashboardPage() {
     Text: undefined,
     Voice: undefined,
     Face: undefined,
+    Multimodal: undefined,
   })
+  const [latestAny, setLatestAny] = useState<EmotionReading | undefined>(undefined)
   const [series, setSeries] = useState<{ time: string; value: number }[]>([])
   const [report, setReport] = useState<DailyReport | null>(null)
 
   function handleResult(r: EmotionReading) {
     setLatest((prev) => ({ ...prev, [r.source]: r }))
+    setLatestAny(r)
     setSeries((prev) => {
       const ts = new Date(r.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      const val = Math.round(r.confidence * 100)
+      // Prefer real stress score if the engine returned one, else fall back to confidence%
+      const val =
+        typeof r.metrics?.stress_score === "number"
+          ? r.metrics.stress_score
+          : Math.round(r.confidence * 100)
       return [...prev.slice(-49), { time: ts, value: val }]
     })
   }
@@ -61,13 +69,13 @@ export default function DashboardPage() {
       }).filter(Boolean)
 
       // Calculate dominant mood
-      const moodCounts = emotions.reduce((acc, mood) => {
+      const moodCounts: Record<string, number> = emotions.reduce((acc: Record<string, number>, mood: string) => {
         acc[mood] = (acc[mood] || 0) + 1
         return acc
       }, {} as Record<string, number>)
 
       const dominantMood = Object.entries(moodCounts)
-        .sort(([,a], [,b]) => b - a)[0]?.[0] || "Neutral"
+        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || "Neutral"
 
       // Calculate average confidence
       const confidences = recentReports.map(r => r.analysis?.confidence || 0).filter(c => c > 0)
@@ -144,6 +152,17 @@ export default function DashboardPage() {
               <EmotionCard title="Face" reading={latest.Face} />
             </CardContent>
           </Card>
+
+          {/* Wellbeing Snapshot (Emotion Intelligence Engine) */}
+          <div className="col-span-1 lg:col-span-3">
+            <WellbeingSnapshot
+              metrics={latestAny?.metrics}
+              emotion={latestAny?.emotion}
+              explanation={latestAny?.explanation}
+              source={latestAny?.source}
+              at={latestAny?.at}
+            />
+          </div>
 
           {/* Inputs */}
           <Card className="col-span-1 rounded-xl shadow-sm">

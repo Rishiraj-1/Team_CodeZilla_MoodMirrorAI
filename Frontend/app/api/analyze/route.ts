@@ -1,9 +1,8 @@
-// frontend/app/api/analyze/face/route.ts
-//
-// Forwards the captured face frame to the real backend Emotion Engine.
-// Replaces the previous mock that returned a hardcoded "Calm".
 import { NextResponse } from "next/server"
 
+// Unified Emotion Intelligence Engine proxy.
+// Forwards any subset of { text, audio_base64, image_base64 } to the
+// FastAPI backend, preserving the user's auth header.
 export async function POST(req: Request) {
   let body: any = {}
   try {
@@ -13,38 +12,20 @@ export async function POST(req: Request) {
   }
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
+
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   const authHeader = req.headers.get("authorization")
   if (authHeader) headers["Authorization"] = authHeader
 
-  // No frame? The dashboard's older interval call sometimes posted an
-  // empty body. Fall back to a Neutral reading instead of 400ing the UI.
-  if (!body || !body.image_base64) {
-    return NextResponse.json({
-      emotion: "Neutral",
-      confidence: 0.4,
-      explanation: "No frame supplied.",
-      metrics: {
-        stress_score: 0,
-        burnout_risk: 0,
-        emotional_volatility: 0,
-        cognitive_load: 0,
-        crisis_probability: 0,
-      },
-      analysis: { emotion: "Neutral", confidence: 0.4 },
-      degraded: true,
-    })
-  }
-
   try {
-    const res = await fetch(`${backendUrl}/api/analyze/face`, {
+    const res = await fetch(`${backendUrl}/api/analyze`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      console.error("[face proxy] backend error:", res.status, data)
+      console.error("[analyze proxy] backend error:", res.status, data)
       return NextResponse.json(
         { error: "Backend error", details: data },
         { status: res.status || 500 },
@@ -52,7 +33,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(data)
   } catch (err: any) {
-    console.error("[face proxy] fetch failed:", err)
+    console.error("[analyze proxy] fetch failed:", err)
     return NextResponse.json(
       { error: "Failed to connect backend", details: err?.message },
       { status: 502 },

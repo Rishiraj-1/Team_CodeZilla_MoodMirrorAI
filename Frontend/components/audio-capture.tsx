@@ -121,6 +121,8 @@ export function AudioCapture({
         emotion: data.emotion,
         confidence: data.confidence,
         at: Date.now(),
+        metrics: data.metrics,
+        explanation: data.explanation,
       })
     } catch (error) {
       console.error("Error processing audio:", error)

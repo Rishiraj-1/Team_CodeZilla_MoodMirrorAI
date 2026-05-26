@@ -45,12 +45,14 @@ export default function HomePage() {
       setNoteFeedback("Analyzing…")
       const data = await analyzeTextApi(note)
       const emotion =
-        (data && typeof data === "object" && data.analysis &&
-          (data.analysis.text ||
-            data.analysis.candidates?.[0]?.content?.parts?.[0]?.text)) ||
-        data?.emotion ||
-        "Unknown"
-      const pct = Math.round((data?.confidence ?? 0.9) * 100)
+        (data && typeof data === "object" && (data.emotion || data.analysis?.emotion)) || "Unknown"
+      const confRaw =
+        typeof data?.confidence === "number"
+          ? data.confidence
+          : typeof data?.analysis?.confidence === "number"
+            ? data.analysis.confidence
+            : 0.9
+      const pct = Math.round(confRaw * 100)
       setNoteFeedback(`Detected: ${emotion} (${pct}%)`)
     } catch {
       setNoteFeedback("Analysis failed. Please try again.")

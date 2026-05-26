@@ -30,6 +30,8 @@ export function TextInput({ onResult }: { onResult: (r: EmotionReading) => void 
         emotion: String(emotionText),
         confidence,
         at: Date.now(),
+        metrics: (data as any)?.metrics,
+        explanation: (data as any)?.explanation,
       })
       setText("")
     } catch (err: any) {
